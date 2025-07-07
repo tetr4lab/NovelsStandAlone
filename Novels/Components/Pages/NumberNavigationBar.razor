@@ -1,0 +1,43 @@
+﻿@inject NavigationManager NavigationManager
+
+<MudStack Row Class="justify-center align-center">
+    <MudTooltip Style="margin-top: -10px;" Arrow Duration="1000" Text="First">
+        <MudIconButton Disabled="Disabled || Number <= Min"  OnClick="@(() => ChangePage (Min))" Icon="@Icons.Material.Outlined.FirstPage" Size="Size.Large" />
+    </MudTooltip>
+    <MudTooltip Style="margin-top: -10px;" Arrow Duration="1000" Text="-10">
+        <MudIconButton Disabled="Disabled || Number <= Min + 9" OnClick="@(() => ChangePage (Number - 10))" Icon="@Icons.Material.Filled.KeyboardDoubleArrowLeft" Size="Size.Large" />
+    </MudTooltip>
+    <MudTooltip Style="margin-top: -10px;" Arrow Duration="1000" Text="-1">
+        <MudIconButton Disabled="Disabled || Number <= Min" OnClick="@(() => ChangePage (Number - 1))" Icon="@Icons.Material.Filled.KeyboardArrowLeft" Size="Size.Large" />
+    </MudTooltip>
+    <MudText>@(Number)/@(Max)</MudText>
+    <MudTooltip Style="margin-top: -10px;" Arrow Duration="1000" Text="+1">
+        <MudIconButton Disabled="Disabled || Number >= Max" OnClick="@(() => ChangePage (Number + 1))" Icon="@Icons.Material.Filled.KeyboardArrowRight" Size="Size.Large" />
+    </MudTooltip>
+    <MudTooltip Style="margin-top: -10px;" Arrow Duration="1000" Text="+10">
+        <MudIconButton Disabled="Disabled || Number > Max - 10" OnClick="@(() => ChangePage (Number + 10))" Icon="@Icons.Material.Filled.KeyboardDoubleArrowRight" Size="Size.Large" />
+    </MudTooltip>
+    <MudTooltip Style="margin-top: -10px;" Arrow Duration="1000" Text="Last">
+        <MudIconButton Disabled="Disabled || Number >= Max" OnClick="@(() => ChangePage (Max))" Icon="@Icons.Material.Outlined.LastPage" Size="Size.Large" />
+    </MudTooltip>
+</MudStack>
+
+@code {
+    /// <summary>変更イベントコールバック</summary>
+    [Parameter] public EventCallback<int> OnChangeNumber { get; set; } = EventCallback<int>.Empty;
+
+    /// <summary>現在地</summary>
+    [Parameter] public int Number { get; set; }
+
+    /// <summary>最少</summary>
+    [Parameter] public int Min { get; set; }
+
+    /// <summary>最大</summary>
+    [Parameter] public int Max { get; set; }
+
+    /// <summary>排他制御</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>ページ変更</summary>
+    protected async Task ChangePage (int number) => await OnChangeNumber.InvokeAsync (number);
+}

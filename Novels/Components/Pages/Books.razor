@@ -1,0 +1,258 @@
+﻿@inherits ItemListBase<Book>
+
+@inject HttpClient HttpClient
+
+@if (DataSet.IsUnavailable) {
+    <MudAlert Severity="Severity.Error" Elevation="3">Unable to connect to any of the specified database management hosts.</MudAlert>
+} else if (items is null) {
+    <MudProgressCircular Indeterminate="true" />
+} else {
+    if (items.Count > 0) {
+        <MudDataGrid T="Book" Items="items" ReadOnly="false" Dense Hover Elevation="0" Breakpoint="Breakpoint.None" @ref="_dataGrid"
+            SortMode="SortMode.None" ColumnResizeMode="ResizeMode.Column" FixedHeader Virtualize
+            QuickFilter="FilterFunc" RowClick="OnRowClick"
+            Height="calc(100vh - var(--mud-appbar-height) * 2 - 1em)" ItemSize="@RowSize"
+        >
+            <Columns>
+                <TemplateColumn HeaderClass="px-1" CellClass="py-1 pl-0 pr-1" HeaderStyle="width:3.8em;" CellStyle="text-align:right;">
+                    <HeaderTemplate>
+                        <MudTooltip Text="@($"着目中の{Book.TableLabel}へ")" Placement="Placement.Right" Arrow Duration="1000">
+                            <MudLink Disabled="UiState.IsLocked" OnClick="ScrollToCurrent" Typo="Typo.inherit" Color="Color.Default" Underline="Underline.None">@(Book.Label [nameof (Book.Id)])</MudLink>
+                        </MudTooltip>
+                    </HeaderTemplate>
+                    <CellTemplate>
+                        <a id="@($"{typeof (Book).Name}-{context.Item.Id}")" />
+                        <MudStack Row Spacing="0" Class="align-center">
+                            <MudIcon Icon="@(context.Item.Id == AppModeService.CurrentBookId ? Icons.Material.Filled.DoubleArrow : null)" />
+                            <MudSpacer />
+                            @(context.Item.Id)
+                            <MudIconButton Disabled="UiState.IsLocked" OnClick="@(async () => await IsshueBook (context.Item))" Style="margin-left: 2px;" Icon="@(context.Item.IsEmpty ? Icons.Material.Filled.Download : context.Item.IsUpdatable && !context.Item.IsErrorForNumberOfSheets ? Icons.Material.Filled.Refresh : context.Item.IsUpToDateWithIssued && !context.Item.IsIssuable ? Icons.Material.Filled.Sync : Icons.Material.Filled.Publish)" Size="Size.Small" />
+                            <MudIconButton Disabled="UiState.IsLocked" OnClick="@(async () => await OpenBook (context.Item))" Style="margin-right: -6px;" Icon="@Icons.Material.Filled.ViewHeadline" Size="Size.Small" />
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="px-0" CellClass="py-1 pl-0 pr-1" HeaderStyle="width:2em;" CellStyle="text-align: center;" Title="@(Book.Label [nameof (Book.Status)])">
+                    <CellTemplate>
+                        <MudTooltip Style="text-align: left;" Arrow Duration="1000" Delay="500">
+                            <TooltipContent>
+                                <p>@($"{(context.Item.Readed ? "既読" : context.Item.HasBeenIssued ? "未読" : "未発行")}{(context.Item.Wish ? "、好評" : "")}")</p>
+                                <p>&nbsp;</p>
+                                <p>著書</p>
+                                <p>@((MarkupString) string.Join ("</p><p>", items.FindAll (item => item.Author == context.Item.Author).ConvertAll (book => $"『{book.Title}』")))</p>
+                                @if (!string.IsNullOrEmpty (context.Item.SeriesTitle)) {
+                                    <p>@(Book.Label [nameof (Book.SeriesTitle)])</p>
+                                    <p>@((MarkupString) string.Join ("</p><p>", items.FindAll (item => item.SeriesTitle == context.Item.SeriesTitle).ConvertAll (book => $"『{book.Title}』")))</p>
+                                }
+                            </TooltipContent>
+                            <ChildContent>
+                                <MudChip T="string" Color="@(context.Item.StatusBgColor)" Style="width: 6em" Label="true" Size="Size.Small" Variant="Variant.Outlined">@(context.Item.Status.ToJString ())</MudChip>
+                            </ChildContent>
+                        </MudTooltip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="px-0" CellClass="py-1 pl-0 pr-1 overflow-hidden text-nowrap" CellStyle="max-width: 18em; text-overflow: ellipsis;" Title="@(Book.Label [nameof (Book.Title)])">
+                    <CellTemplate><span title="@(context.Item.Title)">@(context.Item.Title)</span></CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="px-0" CellClass="py-1 pl-0 pr-1 overflow-hidden text-nowrap" CellStyle="max-width: 5em; text-overflow: ellipsis;" Title="@(Book.Label [nameof (Book.Author)])">
+                    <CellTemplate>
+                        @{ var author = context.Item.Author.Replace (' ', '\u2423'); }
+                        <MudLink Disabled="UiState.IsLocked" OnClick="@(async () => await ChangeFilter (author, context.Item))" title="@($"「{author}」で絞り込み")" Color="Color.Default" Typo="Typo.inherit" Underline="Underline.None">@(context.Item.Author)</MudLink>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="px-0" CellClass="py-1 pl-0 pr-1 overflow-hidden text-nowrap" CellStyle="max-width: 8em; text-overflow: ellipsis;" Title="@(Book.Label [nameof (Book.SeriesTitle)])">
+                    <CellTemplate>
+                        @{ var series = context.Item.SeriesTitle.Replace (' ', '\u2423'); }
+                        <MudLink Disabled="UiState.IsLocked" OnClick="@(async () => await ChangeFilter (series, context.Item))" title="@($"「{series}」で絞り込み")" Color="Color.Default" Typo="Typo.inherit" Underline="Underline.None">@(context.Item.SeriesTitle)</MudLink>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="px-0" CellClass="py-1 pl-0 pr-1 text-nowrap" HeaderStyle="width:2em;" CellStyle="text-align: center; max-width: 7em;" Title="@(Book.Label [nameof (Book.Site)])">
+                    <CellTemplate>
+                    <MudTooltip Text="@($"{Book.Label[nameof(Book.Site)]}を開く")" Arrow Duration="1000">
+                        <MudChip Disabled="UiState.IsLocked" OnClick="@(async () => await OpenUrl (context.Item))" Target="_blank" T="string" Label="true" Size="Size.Small" Variant="Variant.Outlined" Class="mx-0">@(context.Item.Site)</MudChip>
+                    </MudTooltip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="pr-0" CellClass="py-1 pr-4" HeaderStyle="width:2em;" CellStyle="text-align:center;" Title="@(Book.Label [nameof (Book.NumberOfSheets)])">
+                    <CellTemplate>
+                        <MudTooltip Arrow Duration="1000" Delay="500">
+                            <ChildContent>
+                                <MudStack Row Spacing="0">
+                                    <MudText Typo="Typo.inherit" Color="@(context.Item.IsErrorForNumberOfSheets ? Color.Error : context.Item.IsUpdatable ? Color.Warning : Color.Inherit)">
+                                        @(context.Item.NumberOfRelatedSheets)
+                                    </MudText>
+                                    <MudText Typo="Typo.inherit">
+                                        /@(context.Item.NumberOfSheets)
+                                    </MudText>
+                                </MudStack>
+                            </ChildContent>
+                            <TooltipContent>
+                                <MudStack Spacing="0" Class="align-start">
+                                    <p>発行数量: @(context.Item.NumberOfIsshued ?? 0)</p>
+                                    <p>取得数量: @(context.Item.NumberOfRelatedSheets)</p>
+                                    <p>書誌数量: @(context.Item.NumberOfSheets)</p>
+                                    <p>発行日時: @(context.Item.HasBeenIssued ? context.Item.IssuedAt?.ToString () ?? "抹消" : "未発行")</p>
+                                    <p>更新日時: @(context.Item.LastUpdate)</p>
+                                </MudStack>
+                            </TooltipContent>
+                        </MudTooltip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn HeaderClass="pr-0" CellClass="py-1 pl-0 pr-4 overflow-hidden text-nowrap" HeaderStyle="width:2em;" CellStyle="max-width: 2em; text-overflow: ellipsis;" Title="@(Book.Label [nameof (Book.Remarks)])">
+                    <CellTemplate>
+                        <span title="@(context.Item.Remarks)">@context.Item.Remarks</span>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    } else {
+        <MudText>No items found.</MudText>
+    }
+    <MudAppBar Class="backdrop-blur pb-2" Color="Color.Transparent" Dense Bottom="true" Fixed="true">
+        <MudTooltip Text="設定" Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="Settings" StartIcon="@Icons.Material.Outlined.Settings" Size="Size.Small" Class="mr-4" />
+        </MudTooltip>
+        <MudTooltip Text="@($"着目中の{Book.TableLabel}へ")" Arrow Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="ScrollToCurrent" Size="Size.Small" StartIcon="@Icons.Material.Filled.DoubleArrow" Class="mr-2" />
+        </MudTooltip>
+        <MudTooltip Text="上端へ" Arrow Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="ScrollToTopAsync" Size="Size.Small" StartIcon="@Icons.Material.Filled.VerticalAlignTop" Class="mr-2" />
+        </MudTooltip>
+        <MudTooltip Text="下端へ" Arrow Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="ScrollToBottomAsync" Size="Size.Small" StartIcon="@Icons.Material.Filled.VerticalAlignBottom" Class="mr-2" />
+        </MudTooltip>
+        <MudSpacer />
+        <MudTooltip Text="発行済み/未発行を絞り込み" Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="@(async () => await ChangeFilter ("_is_issued_", "_not_issued_"))" StartIcon="@Icons.Material.Outlined.PublishedWithChanges" Size="Size.Small" Class="mr-2" />
+        </MudTooltip>
+        <MudTooltip Text="既読/未読を絞り込み" Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="@(async () => await ChangeFilter ("_is_readed_", "_not_readed_"))" StartIcon="@Icons.Material.Outlined.Visibility" Size="Size.Small" Class="mr-2" />
+        </MudTooltip>
+        <MudTooltip Text="お気に入りを絞り込み" Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="@(async () => await ChangeFilter ("_is_wished_", "_not_wished_"))" StartIcon="@Icons.Material.Outlined.StarRate" Size="Size.Small" Class="mr-2" />
+        </MudTooltip>
+        <MudTooltip Text="未着手を絞り込み" Duration="1000">
+            <MudFab Disabled="UiState.IsLocked" OnClick="@(async () => await ChangeFilter ("=_not_readed_ =%0."))" StartIcon="@Icons.Material.Outlined.FiberNew" Size="Size.Small" Class="mr-2" />
+        </MudTooltip>
+        <MudSpacer />
+        <MudTooltip Arrow="true" Text="@($"{Book.TableLabel}を追加")">
+            <MudFab Disabled="UiState.IsLocked" OnClick="AddBook" StartIcon="@Icons.Material.Outlined.Add" Size="Size.Small" />
+        </MudTooltip>
+    </MudAppBar>
+}
+
+@code {
+    /// <summary>1行のサイズ</summary>
+    protected const float RowSize = 41.0f;
+
+    /// <summary>テーブルと画面高さの比率のようなもの</summary>
+    public static readonly double ViewportHeightRatio = 1.25d;
+
+    /// <summary>行がクリックされた</summary>
+    protected void OnRowClick (DataGridRowClickEventArgs<Book> context) {
+        if (context.Item is Book book) {
+            ChangeCurrentBook (book);
+        }
+    }
+
+    /// <summary>フィルター切り替え (トライステート)</summary>
+    protected async Task ChangeFilter (string on, string off) {
+        var newText = AppModeService.FilterText == on ? off : AppModeService.FilterText == off ? "" : on;
+        await SetFilter (newText);
+    }
+    /// <summary>フィルター切り替え</summary>
+    protected async Task ChangeFilter (string filter) {
+        var newText = AppModeService.FilterText == filter ? "" : filter;
+        await SetFilter (newText);
+    }
+
+    /// <summary>フィルター切り替え</summary>
+    protected async Task ChangeFilter (string filter, Book book) {
+        ChangeCurrentBook (book);
+        await ChangeFilter (filter);
+    }
+
+    /// <summary>フィルター設定</summary>
+    protected async Task SetFilter (string filter) {
+        await SetBusyAsync ();
+        AppModeService.SetFilterText (filter);
+        await SetIdleAsync ();
+    }
+
+    /// <summary>Urlを開く</summary>
+    protected async Task OpenUrl (Book book) {
+        await SetBusyAsync ();
+        await JSRuntime.OpenUrl (book.Url);
+        ChangeCurrentBook (book);
+        await SetIdleAsync ();
+    }
+
+    /// <summary>設定</summary>
+    protected async Task Settings () {
+        await SetBusyAsync ();
+        await SetAppMode (AppMode.Settings);
+        await SetIdleAsync ();
+    }
+
+    /// <summary>書籍を発行</summary>
+    protected async Task IsshueBook (Book book) {
+        await SetBusyAsync ();
+        ChangeCurrentBook (book);
+        await SetAppMode (AppMode.Issue);
+        await SetIdleAsync ();
+    }
+
+    /// <summary>書籍を開く</summary>
+    protected async Task OpenBook (Book book) {
+        await SetBusyAsync ();
+        ChangeCurrentBook (book);
+        await SetAppMode (AppMode.Contents);
+        await SetIdleAsync ();
+    }
+
+    /// <summary>書籍を追加する</summary>
+    protected async Task AddBook () {
+        var url = "";
+        try {
+            url = await JSRuntime.GetClipboardText ();
+            // urlを修正する機会を与えるダイアログを表示
+            var dialogResult = await (await DialogService.OpenAddItemDialog<Book> (
+                message: $"取得先URLを確認して{Book.TableLabel}の追加を完了してください。",
+                label: "URL",
+                value: url
+            )).Result;
+            if (dialogResult is not null && !dialogResult.Canceled && dialogResult.Data is string newUrl && !string.IsNullOrEmpty (newUrl)) {
+                newUrl = newUrl.Trim ();
+                // 既存のURLと比較する
+                var existingBook = items?.FirstOrDefault (x => x.Url1 == newUrl || x.Url2 == newUrl);
+                if (existingBook is not null) {
+                    Snackbar.Add ($"既存の{Book.TableLabel}: 『{existingBook.Title}』", Severity.Warning);
+                    ChangeCurrentBook (existingBook);
+                    await ScrollToCurrentAsync ();
+                    return;
+                }
+                // オーバーレイ
+                await SetBusyAsync ();
+                // 入力されたurlからあたらしいBookに情報を取得、DBへ追加・選択する
+                var result = await DataSet.UpdateBookFromSiteAsync (HttpClient, newUrl, UserIdentifier);
+                foreach (var issue in result.Value.issues) {
+                    Snackbar.Add (issue, Severity.Error);
+                }
+                if (result.IsSuccess) {
+                    var newBook = result.Value.book;
+                    lastCreatedId = newBook.Id;
+                    ChangeCurrentBook (newBook);
+                    // Issueページへ移動する
+                    await IsshueBook (newBook);
+                } else {
+                    Snackbar.Add ($"追加に失敗: {(items is null ? "null, " : "")}{lastCreatedId}\n{newItem}", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex) {
+            Snackbar.Add ($"Exception: {ex.Message}", Severity.Error);
+        }
+        finally {
+            await SetIdleAsync ();
+        }
+    }
+}

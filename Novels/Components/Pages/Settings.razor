@@ -1,0 +1,145 @@
+﻿@using System.Text.Json
+
+@inherits ItemListBase<Setting>
+
+@if (DataSet.IsUnavailable) {
+    <MudAlert Severity="Severity.Error" Elevation="3">Unable to connect to any of the specified database management hosts.</MudAlert>
+} else if (!DataSet.IsReady || items is null) {
+    <MudProgressCircular Indeterminate="true" />
+} else if (items.Count > 0) {
+    selectedItem = items [0];
+    <MudSimpleTable Elevation="0" Dense Striped Bordered>
+        <thead>
+            <tr>
+                <th style="width: 10em;"></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.Id)])</td>
+                <td>@selectedItem.Id</td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.PersonalDocumentLimitSize)])</td>
+                <td><MudTextField T="int" @bind-Value="selectedItem.PersonalDocumentLimitSize" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpServer)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpServer" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpPort)])</td>
+                <td><MudTextField T="int" @bind-Value="selectedItem.SmtpPort" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpUserName)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpUserName" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpPassword)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpPassword" InputType="@PasswordInputType" Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="ButtonTestclick" AdornmentAriaLabel="Show Password" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpMailAddress)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpMailAddress" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpMailto)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpMailto" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpCc)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpCc" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpBcc)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpBcc" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpSubject)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpSubject" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.SmtpBody)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpBody" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.UserAgent)])</td>
+                <td><MudTextField T="string" @bind-Value="selectedItem.UserAgent" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.AccessIntervalTime)])</td>
+                <td><MudNumericField Min="1000" @bind-Value="selectedItem.AccessIntervalTime" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.DefaultCookiesJson)])</td>
+                <td><MudTextField T="string" Validation="@(new Func<string, bool> (CookiesValidate))" @bind-Value="selectedItem.DefaultCookiesJson" @ref="_cookieField" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.IncludeImage)])</td>
+                <td><MudCheckBox @bind-Value="selectedItem.IncludeImage" /></td>
+            </tr>
+            <tr>
+                <td>@(Setting.Label [nameof (Setting.Remarks)])</td>
+                <td>
+                    <style>.horizontal-scroll textarea { overflow-x: auto; white-space: nowrap; }</style>
+                    <MudTextField Class="horizontal-scroll" T="string" @bind-Value="selectedItem.Remarks" Lines="10" />
+                </td>
+            </tr>
+        </tbody>
+    </MudSimpleTable>
+    <MudStack Row Class="mt-5 justify-center">
+        <MudTooltip Arrow="true" Text="復旧">
+            <MudIconButton Disabled="UiState.IsLocked || !IsDirty" OnClick="RevertAsync" Color="Color.Error" Icon="@Icons.Material.Filled.ReplayCircleFilled" Variant="Variant.Outlined" Size="Size.Large" />
+        </MudTooltip>
+        <MudTooltip Arrow="true" Text="保存">
+            <MudIconButton Disabled="UiState.IsLocked || !IsDirty || _cookieField?.Error != false" OnClick="SaveAsync" Color="Color.Success" Icon="@Icons.Material.Filled.Save" Variant="Variant.Outlined" Size="Size.Large" />
+        </MudTooltip>
+    </MudStack>
+} else {
+    <MudText>No items found.</MudText>
+}
+
+@code {
+    /// <summary>パスワード欄の可視性</summary>
+    protected bool PasswordIsShow;
+    /// <summary>パスワード欄のタイプ</summary>
+    protected InputType PasswordInputType = InputType.Password;
+    /// <summary>パスワード欄のアイコン</summary>
+    protected string PasswordInputIcon = Icons.Material.Filled.Visibility;
+    /// <summary>パスワード欄のアイコンボタンが押された</summary>
+    protected void ButtonTestclick () {
+        if (PasswordIsShow) {
+            PasswordIsShow = false;
+            PasswordInputIcon = Icons.Material.Filled.Visibility;
+            PasswordInputType = InputType.Password;
+        } else {
+            PasswordIsShow = true;
+            PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+            PasswordInputType = InputType.Text;
+        }
+    }
+
+    /// <summary>クッキーフィールド</summary>
+    protected MudTextField<string>? _cookieField = null;
+
+    /// <summary>クッキーの検証</summary>
+    protected bool CookiesValidate (string json) {
+        try {
+            if (JsonSerializer.Deserialize<Dictionary<string, string>> (json) is not null) {
+                return true;
+            }
+        }
+        catch {
+        }
+        return false;
+    }
+
+    /// <summary>初期化</summary>
+    protected override async Task OnInitializedAsync() {
+        await base.OnInitializedAsync ();
+        StartEdit ();
+    }
+
+}

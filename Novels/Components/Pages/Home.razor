@@ -1,0 +1,80 @@
+﻿@using System.ComponentModel
+
+@inherits NovelsComponentBase
+
+@inject NovelsDataSet DataSet
+
+@page "/"
+
+<PageTitle>Novels</PageTitle>
+
+@switch (AppModeService.CurrentMode) {
+    case AppMode.Boot:
+        if (!UiState.IsLocked) {
+            UiState.Lock ("Loading...");
+        }
+        break;
+    case AppMode.Books:
+        <Books Book="Book" ReLoadAsync="ReLoadAsync" />
+        break;
+    case AppMode.Issue:
+        <Issue Book="Book" ReLoadAsync="ReLoadAsync" />
+        break;
+    case AppMode.Contents:
+        <Sheets Book="Book" ReLoadAsync="ReLoadAsync" />
+        break;
+    case AppMode.Read:
+        <Read Book="Book" ReLoadAsync="ReLoadAsync" />
+        break;
+    case AppMode.Settings:
+        <Settings Book="Book" ReLoadAsync="ReLoadAsync" />
+        break;
+    default:
+        break;
+}
+
+@code {
+    /// <summary>着目中の書籍</summary>
+    protected virtual Book? Book { get; set; } = null;
+
+    /// <summary>アプリモードの更新があった</summary>
+    protected override void OnAppModeChanged (object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == "CurrentBookId" && sender is NovelsAppModeService service) {
+            // CurrentBookIdが変更された
+            if (service.CurrentBookId > 0 && DataSet.IsInitialized) {
+                // 着目書籍オブジェクトを取得
+                Book = DataSet.Books.Find (s => s.Id == service.CurrentBookId);
+            }
+        }
+        base.OnAppModeChanged (sender, e);
+    }
+
+    /// <summary>再読み込み</summary>
+    protected async Task ReLoadAsync () {
+        // リロード完了待機
+        await DataSet.LoadAsync ();
+        if (AppModeService.CurrentBookId > 0 && DataSet.IsInitialized) {
+            // 着目書籍オブジェクトを取得
+            Book = DataSet.Books.Find (s => s.Id == AppModeService.CurrentBookId);
+        }
+    }
+
+    /// <inheritdoc/>
+    protected override async Task OnAfterRenderAsync (bool firstRender) {
+        await base.OnAfterRenderAsync (firstRender);
+        if (firstRender && !DataSet.IsInitialized && !DataSet.IsInitializeStarted) {
+            try {
+                // DB初期化
+                await DataSet.InitializeAsync ();
+                if (AppModeService.CurrentBookId <= 0) {
+                    AppModeService.SetCurrentBookId (DataSet.CurrentBookId);
+                }
+                await TaskEx.DelayUntil (() => DataSet.IsReady);
+                AppModeService.SetMode (AppMode.Books);
+            }
+            catch (Exception ex) {
+                System.Diagnostics.Debug.WriteLine (ex);
+            }
+        }
+    }
+}

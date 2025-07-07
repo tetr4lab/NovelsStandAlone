@@ -1,0 +1,28 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1">@Message</MudText>
+        <MudTextField T="string" @bind-Value="Url" Label="@TextFieldLabel" Validation="(Func<string, string>) ValidateUri" Required />
+    </DialogContent>
+    <DialogActions>
+        <MudSpacer />
+        <MudFab OnClick="@(MudDialog.Cancel)" StartIcon="@CancelButtonIcon" Size="Size.Small" />
+        <MudFab Disabled="IsInvalidUrl" OnClick="OnConfirmed" StartIcon="@OkButtonIcon" Color="Color.Success" Size="Size.Small" />
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public string TextFieldValue { get; set; } = string.Empty;
+    [Parameter] public string TextFieldLabel { get; set; } = string.Empty;
+    [Parameter] public string OkButtonIcon { get; set; } = Icons.Material.Filled.Add;
+    [Parameter] public string CancelButtonIcon { get; set; } = Icons.Material.Filled.Close;
+    protected string Url = "";
+    protected void OnConfirmed () => MudDialog.Close (DialogResult.Ok (Url));
+    protected bool IsInvalidUrl => !Uri.IsWellFormedUriString (Url, UriKind.Absolute);
+    protected override void OnInitialized () {
+        base.OnInitialized ();
+        Url = TextFieldValue;
+    }
+    protected string ValidateUri (string? uri) => string.IsNullOrEmpty (uri) || Uri.IsWellFormedUriString (uri, UriKind.Absolute) ? "" : "bad uri";
+}

@@ -1,0 +1,120 @@
+﻿@inherits ItemListBase<Sheet>
+
+@inject IJSRuntime JsRuntime
+
+@if (DataSet.IsUnavailable) {
+    <MudAlert Severity="Severity.Error" Elevation="3">Unable to connect to any of the specified database management hosts.</MudAlert>
+} else if (DataSet.IsReady && Book is null) {
+    <MudText>No book selected or found.</MudText>
+    <MudButton Class="ma-3" Disabled="UiState.IsLocked" OnClick="@(async () => await SetAppMode (AppMode.Books))" StartIcon="@Icons.Material.Filled.LibraryBooks" Variant="Variant.Filled">go home</MudButton>
+} else if (items is null || Book is null) {
+    <MudProgressCircular Indeterminate="true" />
+} else if (items.Count > 0) {
+    if (Book is not null) {
+        if (Sheet is not null) {
+            <NumberNavigationBar Disabled="UiState.IsLocked" Number="@(AppModeService.CurrentSheetIndex)" Min="1" Max="@(items.Count)" OnChangeNumber="OnChageSheetAsync" />
+            @if (!string.IsNullOrEmpty (Sheet.Preface)) {
+                <MudPaper Class="ma-4 pa-2" Elevation="1">
+                    <MudText Typo="Typo.caption">@((MarkupString) Sheet.Preface)</MudText>
+                </MudPaper>
+            }
+            <MudPaper Elevation="0">
+                <MudText Class="mt-2 mb-4"><h2>@(Sheet?.SheetTitle)</h2></MudText>
+                <MudText Typo="Typo.inherit">@((MarkupString) Sheet.SheetHonbun)</MudText>
+            </MudPaper>
+            @if (!string.IsNullOrEmpty (Sheet.Afterword)) {
+                <MudPaper Class="ma-4 pa-2" Elevation="1">
+                    <MudText Typo="Typo.caption">@((MarkupString) Sheet.Afterword)</MudText>
+                </MudPaper>
+            }
+            <MudSimpleTable Elevation="0" Dense Bordered>
+                <thead>
+                    <tr>
+                        <th style="width: 10em;"></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <MudTooltip Text="@($"この{Sheet.TableLabel}にのみ作用")" Arrow="true">
+                                @(Sheet.Label [nameof (Sheet.Errata)])
+                            </MudTooltip>
+                        </td>
+                        <td><MudTextField T="string" Placeholder="@($"error1{Sheet.Separator}correct1{Sheet.Terminator}error2{Sheet.Separator}correct2{Sheet.Terminator}  :")" @bind-Value="Sheet.Errata" Lines="10" /></td>
+                    </tr>
+                    <tr>
+                        <td>@(Sheet.Label [nameof (Sheet.Remarks)])</td>
+                        <td><MudTextField T="string" @bind-Value="Sheet.Remarks" Lines="10" /></td>
+                    </tr>
+                </tbody>
+            </MudSimpleTable>
+            <MudStack Row Class="mt-5 justify-center">
+                <MudTooltip Arrow="true" Text="復旧">
+                    <MudIconButton Disabled="UiState.IsLocked || !IsDirty" OnClick="RevertAsync" Color="Color.Error" Icon="@Icons.Material.Filled.ReplayCircleFilled" Variant="Variant.Outlined" Size="Size.Large" />
+                </MudTooltip>
+                <MudTooltip Arrow="true" Text="保存">
+                    <MudIconButton Disabled="UiState.IsLocked || !IsDirty" OnClick="SaveAsync" Color="Color.Success" Icon="@Icons.Material.Filled.Save" Variant="Variant.Outlined" Size="Size.Large" />
+                </MudTooltip>
+            </MudStack>
+            <NumberNavigationBar Number="@(AppModeService.CurrentSheetIndex)" Min="1" Max="@(items.Count)" OnChangeNumber="OnChageSheetAsync" />
+            <MudScrollToTop TopOffset="1000">
+                <MudFab Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.ArrowCircleUp" />
+            </MudScrollToTop>
+        } else {
+            <MudText>No page found.</MudText>
+        }
+    } else {
+        <MudText>No books found.</MudText>
+    }
+} else if (Book.Site == Site.Unknown && !string.IsNullOrEmpty (Book.Html)) {
+    var body = Book.Document?.QuerySelector ("body");
+    if (body is not null && body.TextContent != Book.Html) {
+        @((MarkupString) body.InnerHtml)
+    } else {
+        @((MarkupString) Book.Html.Replace ("\n", "<br>"))
+    }
+} else {
+    <MudText>No items found.</MudText>
+}
+
+@code {
+    /// <summary>着目中のシート</summary>
+    protected Sheet? Sheet { get; set; } = null;
+
+    /// <summary>シート番号に依存した設定</summary>
+    protected async Task SetSheetAsync (int index) {
+        if (Book is not null) {
+            await SetBusyAsync ();
+            index = Book.Sheets.Count > 0 ? Math.Clamp (index, 1, Book.Sheets.Count) : 1;
+            AppModeService.SetCurrentSheetIndex (index);
+            if (editingItem is not null) {
+                Cancel (editingItem);
+            }
+            if (Book.Sheets.Count > 0) {
+                Sheet = Book.Sheets [index - 1];
+                selectedItem = Sheet;
+                AppModeService.SetSectionTitle ($"<span style=\"font-size:80%;\"><a href=\"{Sheet.Url}\" target=\"_blank\" style=\"text-decoration: none;\">『{Book.Title}』 {Book.Author}</a></span>\n{Sheet.OriginalChapterTitle} {Sheet.ChapterSubTitle}");
+                StartEdit ();
+            }
+            await SetIdleAsync ();
+        } else {
+            AppModeService.SetSectionTitle ("Read");
+        }
+    }
+
+    /// <summary>シート変更</summary>
+    protected async Task OnChageSheetAsync (int index) {
+        if (AppModeService.CurrentSheetIndex != index && await ConfirmCancelEditAsync ()) {
+            await SetSheetAsync (index);
+            // ページトップへスクロール
+            await JsRuntime.ScrollToTop ();
+        }
+    }
+
+    /// <summary>最初に着目書籍を切り替えてDataSetの再初期化を促す</summary>
+    protected override async Task OnInitializedAsync() {
+        await base.OnInitializedAsync ();
+        await SetSheetAsync (AppModeService.CurrentSheetIndex);
+    }
+}

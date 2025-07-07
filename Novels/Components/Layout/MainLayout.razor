@@ -1,0 +1,98 @@
+﻿@using System.ComponentModel;
+
+@inherits LayoutComponentBase
+
+@implements IDisposable
+@inject IAppLockState UiState
+@inject NovelsAppModeService AppModeService
+
+<PageTitle>Novels</PageTitle>
+
+<div class="page">
+    <nav>
+        <MudAppBar Color="Color.Transparent" Dense Fixed="true" Class="backdrop-blur">
+            <MudGrid Class="align-center flex-nowrap" Spacing="0">
+                <CascadingValue Value="@_isDarkMode" Name="IsDarkMode">
+                <CascadingValue Value="@(EventCallback.Factory.Create (this, ChangeModeAsync))" Name="ChangeModeAsync">
+                    <NavBar />
+                </CascadingValue>
+                </CascadingValue>
+            </MudGrid>
+        </MudAppBar>
+    </nav>
+    <main>
+        <MudAppBar Color="Color.Transparent" Style="z-index:0;" Elevation="0" Dense Fixed="false">
+            @*hidden spacer*@
+        </MudAppBar>
+        <MudStack Row Class="px-4" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h5" Class="overflow-hidden text-nowrap" Style="text-overflow: ellipsis;">@((MarkupString) AppModeService.SectionTitle)</MudText>
+            <MudText Typo="Typo.h5" Class="overflow-hidden text-nowrap"><SessionCounter /></MudText>
+        </MudStack>
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+<AppLockOverlay IsOverlayed="UiState.IsLocked" OverlayValue="UiState.CurrentProgressValue" OverlayMin="0" OverlayMax="UiState.TotalProgressValue" OverlayLabel="@UiState.Reason" />
+<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@code {
+    /// <summary>テーマ ストレージキー</summary>
+    protected const string DarkModeStorageKey = "IsDarkTheme";
+
+    /// <summary>テーマプロバイダへの参照</summary>
+    protected MudThemeProvider _mudThemeProvider = default!;
+
+    /// <summary>ダークモード</summary>
+    protected bool _isDarkMode;
+
+    /// <summary>テーマ切替ボタンが押された</summary>
+    protected async Task ChangeModeAsync () {
+        _isDarkMode = !_isDarkMode;
+        //await Storage.SetValueAsync (DarkModeStorageKey, _isDarkMode);
+    }
+
+    /// <summary>遅延初期化</summary>
+    protected override async Task OnAfterRenderAsync (bool firstRender) {
+        if (firstRender) {
+            // テーマ
+            try {
+                // var darkMode = await Storage.GetValueAsync<bool> (DarkModeStorageKey);
+                // _isDarkMode = darkMode.Success ? darkMode.Value : await _mudThemeProvider.GetSystemDarkModeAsync ();
+            }
+            catch (System.Security.Cryptography.CryptographicException ex) {
+                System.Diagnostics.Debug.WriteLine ($"CryptographicException: {ex.Message}\n{ex.StackTrace}");
+            }
+            //await Storage.SetValueAsync (DarkModeStorageKey, _isDarkMode);
+            StateHasChanged ();
+        }
+    }
+
+    /// <summary>アプリモードが変化した</summary>
+    protected async void OnAppModeChanged (object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == "SectionTitle") { // セクションタイトル
+            await InvokeAsync (StateHasChanged);
+        }
+    }
+
+    /// <summary>アプリロックが変化した</summary>
+    protected async void OnAppLockChanged (object? sender, PropertyChangedEventArgs e) {
+        await InvokeAsync (StateHasChanged);
+    }
+
+    /// <summary>初期化 購読開始</summary>
+    protected override void OnInitialized () {
+        base.OnInitialized ();
+        UiState.PropertyChanged += OnAppLockChanged;
+        AppModeService.PropertyChanged += OnAppModeChanged;
+    }
+
+    /// <summary>購読終了</summary>
+    public void Dispose () {
+        UiState.PropertyChanged -= OnAppLockChanged;
+        AppModeService.PropertyChanged -= OnAppModeChanged;
+    }
+}

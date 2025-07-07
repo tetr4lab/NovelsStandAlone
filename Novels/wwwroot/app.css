@@ -1,0 +1,67 @@
+﻿
+/* ぼやけた背景 */
+.backdrop-blur {
+    backdrop-filter: blur(10px);
+}
+
+/*
+    ダイアログのタイトルとアクションを固定し、コンテンツだけをスクロール対象にする
+    ref: https://github.com/MudBlazor/MudBlazor/issues/6704
+*/
+.mud-dialog > .outline-none {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mud-dialog > .outline-none > div:nth-of-type(4) {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mud-dialog .mud-dialog-content {
+    overflow-y: auto;
+}
+
+/**/
+
+.mud-table-cell, td, th, .mud-simple-table table * tr > td, .mud-simple-table table * tr th {
+    vertical-align: top;
+}
+
+.align-top, .mud-table-cell.align-top, td.align-top, th.align-top, .mud-simple-table table * tr > td.align-top, .mud-simple-table table * tr th.align-top {
+    vertical-align: top;
+}
+
+.align-bottom, .mud-table-cell.align-bottom, td.align-bottom, th.align-bottom, .mud-simple-table table * tr > td.align-bottom, .mud-simple-table table * tr th.align-bottom {
+    vertical-align: bottom;
+}
+
+.align-right, .mud-table-cell.align-right, td.align-right, th.align-right, .mud-simple-table table * tr > td.align-right, .mud-simple-table table * tr th.align-right {
+    text-align: right;
+}
+
+.align-left, .mud-table-cell.align-left, td.align-left, th.align-left, .mud-simple-table table * tr > td.align-left, .mud-simple-table table * tr th.align-left {
+    text-align: left;
+}
+
+.align-end, .mud-simple-table table * tr > td.align-end, .mud-simple-table table * tr th.align-end, .mud-simple-table table * tr td.align-end {
+    text-align: end;
+}
+
+.align-start, .mud-simple-table table * tr > td.align-start, .mud-simple-table table * tr th.align-start, .mud-simple-table table * tr td.align-start {
+    text-align: start;
+}
+
+.align-middle, .mud-table-cell.align-middle, td.mud-table-cell.align-middle, td.align-middle, th.align-middle, .mud-simple-table table * tr > td.align-middle, .mud-simple-table table * tr th.align-middle {
+    text-align: center;
+}
+
+th {
+    white-space: nowrap;
+}
+
+.text-nowrap, .mud-table-cell.text-nowrap, td.text-nowrap, th.text-nowrap {
+    white-space: nowrap;
+}
