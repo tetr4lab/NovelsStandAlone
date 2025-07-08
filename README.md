@@ -1,6 +1,6 @@
 ﻿---
 title: Blazor Web App (Server) から Blazor Hybrid (WPF) への移植例
-tags: epub webscraping smtp-mail blazor
+tags: epub webscraping smtp-mail blazor-hybrid wpf
 ---
 
 # Blazor Web App (Server) から Blazor Hybrid (WPF) への移植例
@@ -19,7 +19,7 @@ tags: epub webscraping smtp-mail blazor
 - プラットフォーム
     - 旧: .net core server / modern browsers
     - 新: Windows
-- バックエンドDB
+- データベース
     - 旧: MySql/MariaDB
     - 新: SQLite
 - 認証
