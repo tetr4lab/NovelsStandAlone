@@ -27,6 +27,7 @@ public sealed class NovelsDataSet : BasicDataSet {
     /// <returns></returns>
     public async Task InitializeAsync (bool creatable) {
         if (!IsInitialized && !IsInitializeStarted) {
+            IsInitializeStarted = true;
             // 最後の書籍Idを得る
             try {
                 CurrentBookId = await database.FirstOrDefaultAsync<long> ("select `id` from `books` order by `id` desc limit 1;");
@@ -36,7 +37,6 @@ public sealed class NovelsDataSet : BasicDataSet {
             }
             // 本来の初期化
             try {
-                IsInitializeStarted = true;
                 await LoadAsync ();
                 IsInitialized = true;
             }
@@ -48,6 +48,7 @@ public sealed class NovelsDataSet : BasicDataSet {
                 });
                 isLoading = false;
                 if (result.IsSuccess) {
+                    IsInitializeStarted = false;
                     await InitializeAsync (false);
                 } else {
                     System.Diagnostics.Debug.WriteLine ($"table creation failed ({result.StatusName})");

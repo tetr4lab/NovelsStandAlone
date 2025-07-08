@@ -41,7 +41,7 @@ public partial class MainWindow : Window {
         serviceCollection.AddScoped<IAppLockState, AppLockState> ();
         // アプリモード
         serviceCollection.AddScoped<NovelsAppModeService> ();
-        // PetaPoco with MySqlConnector
+        // PetaPoco with SQLite
         serviceCollection.AddScoped (_ => (Database) new SQLiteDatabase (connectionString, "SQLite"));
         // HTTP Client
         serviceCollection.AddHttpClient ();
