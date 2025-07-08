@@ -193,31 +193,6 @@ public sealed class NovelsDataSet : BasicDataSet {
         return false;
     }
 
-    /// <summary>単一アイテムの追加</summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="item"></param>
-    /// <returns></returns>
-    public override async Task<Result<T>> AddAsync<T> (T item) {
-        var result = await ProcessAndCommitAsync (async () => {
-            item.Id = await database.ExecuteScalarAsync<int> (
-                @$"insert into `{GetSqlName<T> ()}` ({GetColumnsSql<T> ()}) values ({GetValuesSql<T> ()});
-                select last_insert_rowid();",
-                item
-            );
-            return item.Id > 0 ? 1 : 0;
-        });
-        if (result.IsSuccess && result.Value <= 0) {
-            result.Status = Status.MissingEntry;
-        }
-        if (result.IsFailure) {
-            item.Id = default;
-        } else {
-            // ロード済みに追加
-            GetList<T> ().Add (item);
-        }
-        return new (result.Status, item);
-    }
-
     /// <summary>書籍の更新</summary>
     /// <param name="client">HTTPクライアント</param>
     /// <param name="url">対象の書籍のURL</param>
@@ -335,26 +310,5 @@ public sealed class NovelsDataSet : BasicDataSet {
             issues.Add ("Invalid DataSet");
         }
         return new (status, (new (), issues));
-    }
-
-    /// <summary>テーブルの次の自動更新値を得る</summary>
-    /// <remarks>SQLiteに依存</remarks>
-    public override async Task<long> GetAutoIncremantValueAsync<T> () {
-        // 開始Idを取得
-        var Id = 0L;
-        try {
-            Id = await database.SingleOrDefaultAsync<long> (
-                $"SELECT seq + 1 FROM sqlite_sequence WHERE name='{GetSqlName<T> ()}';"
-            );
-            if (Id == 0) { Id = 1; }
-        }
-        catch (Exception ex) {
-            System.Diagnostics.Debug.WriteLine ($"Get auto_increment number\n{ex}");
-        }
-        if (Id <= 0) {
-            // 開始Idの取得に失敗
-            throw new NotSupportedException ("Failed to get auto_increment value.");
-        }
-        return Id;
     }
 }

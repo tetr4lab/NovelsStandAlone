@@ -2,6 +2,7 @@
 using System.Data.Common;
 using PetaPoco.Core;
 using Tetr4lab;
+using Novels.Data;
 
 namespace PetaPoco;
 
