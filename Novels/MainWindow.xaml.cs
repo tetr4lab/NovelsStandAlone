@@ -47,6 +47,17 @@ public partial class MainWindow : Window {
         serviceCollection.AddHttpClient ();
         // DataSet
         serviceCollection.AddScoped<NovelsDataSet> ();
+#if DEBUG
+        Top = 0;
+        Left = 2600;
+        Height = 1380;
+        Width = 1200;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+#else
+        Height = 1380;
+        Width = 1200;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+#endif
         Resources.Add ("services", serviceCollection.BuildServiceProvider ());
     }
 }

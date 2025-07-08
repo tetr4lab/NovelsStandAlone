@@ -7,7 +7,7 @@
         xmlns:components="clr-namespace:Novels.Components"
         xmlns:local="clr-namespace:Novels"
         mc:Ignorable="d"
-        Title="MainWindow" Height="1380" Width="1200" WindowStartupLocation="Manual" Left="2600" Top="0">
+        Title="Novels by Blazor Hybrid WPF">
     <Grid>
         <blazor:BlazorWebView HostPage="wwwroot\index.html" Services="{DynamicResource services}">
             <blazor:BlazorWebView.RootComponents>
