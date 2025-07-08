@@ -1,33 +1,66 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.IO;
 using System.Net.Http;
-using MySqlConnector;
+using Microsoft.Data.Sqlite;
 using PetaPoco;
 using Novels.Data;
 using Tetr4lab;
-using System.Data;
 
 namespace Novels.Services;
 
 /// <summary></summary>
 public sealed class NovelsDataSet : BasicDataSet {
 
+    /// <summary>初期化SQLファイル名</summary>
+    private const string InitializeSql = "novels.sql";
+
     /// <summary>コンストラクタ</summary>
-    public NovelsDataSet (Database database) : base (database) { }
+    public NovelsDataSet (Database database, string key = "Data Source") : base (database, key) { }
 
     /// <inheritdoc/>
-    /// <remarks>最後の書籍Idを得る</remarks>
-    public override async Task InitializeAsync () {
+    public override Task InitializeAsync () => InitializeAsync (true);
+
+    /// <summary>初期化</summary>
+    /// <param name="creatable">新規生成可</param>
+    /// <returns></returns>
+    public async Task InitializeAsync (bool creatable) {
         if (!IsInitialized && !IsInitializeStarted) {
+            // 最後の書籍Idを得る
             try {
                 CurrentBookId = await database.FirstOrDefaultAsync<long> ("select `id` from `books` order by `id` desc limit 1;");
             }
             catch (Exception e) {
                 System.Diagnostics.Debug.WriteLine ($"Exception: {e.Message}\n{e.StackTrace}");
             }
+            // 本来の初期化
+            try {
+                IsInitializeStarted = true;
+                await LoadAsync ();
+                IsInitialized = true;
+            }
+            // DBがないので新規作成
+            catch (SqliteException e) when (e.Message.Contains ("'no such table:") && creatable && File.Exists (InitializeSql)) {
+                var sql = File.ReadAllText (InitializeSql);
+                var result = await ProcessAndCommitAsync (async () => {
+                    return await database.ExecuteAsync (sql);
+                });
+                isLoading = false;
+                if (result.IsSuccess) {
+                    await InitializeAsync (false);
+                } else {
+                    System.Diagnostics.Debug.WriteLine ($"table creation failed ({result.StatusName})");
+                    IsUnavailable = true;
+                }
+            }
+            // 本来の例外処理
+            catch (Exception e) {
+                System.Diagnostics.Debug.WriteLine (e);
+                isLoading = false;
+                IsUnavailable = true;
+            }
         }
-        await base.InitializeAsync ();
     }
 
     /// <summary>着目中の書籍</summary>
@@ -159,6 +192,31 @@ public sealed class NovelsDataSet : BasicDataSet {
         return false;
     }
 
+    /// <summary>単一アイテムの追加</summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="item"></param>
+    /// <returns></returns>
+    public override async Task<Result<T>> AddAsync<T> (T item) {
+        var result = await ProcessAndCommitAsync (async () => {
+            item.Id = await database.ExecuteScalarAsync<int> (
+                @$"insert into `{GetSqlName<T> ()}` ({GetColumnsSql<T> ()}) values ({GetValuesSql<T> ()});
+                select last_insert_rowid();",
+                item
+            );
+            return item.Id > 0 ? 1 : 0;
+        });
+        if (result.IsSuccess && result.Value <= 0) {
+            result.Status = Status.MissingEntry;
+        }
+        if (result.IsFailure) {
+            item.Id = default;
+        } else {
+            // ロード済みに追加
+            GetList<T> ().Add (item);
+        }
+        return new (result.Status, item);
+    }
+
     /// <summary>書籍の更新</summary>
     /// <param name="client">HTTPクライアント</param>
     /// <param name="url">対象の書籍のURL</param>
@@ -278,4 +336,24 @@ public sealed class NovelsDataSet : BasicDataSet {
         return new (status, (new (), issues));
     }
 
+    /// <summary>テーブルの次の自動更新値を得る</summary>
+    /// <remarks>SQLiteに依存</remarks>
+    public override async Task<long> GetAutoIncremantValueAsync<T> () {
+        // 開始Idを取得
+        var Id = 0L;
+        try {
+            Id = await database.SingleOrDefaultAsync<long> (
+                $"SELECT seq + 1 FROM sqlite_sequence WHERE name='{GetSqlName<T> ()}';"
+            );
+            if (Id == 0) { Id = 1; }
+        }
+        catch (Exception ex) {
+            System.Diagnostics.Debug.WriteLine ($"Get auto_increment number\n{ex}");
+        }
+        if (Id <= 0) {
+            // 開始Idの取得に失敗
+            throw new NotSupportedException ("Failed to get auto_increment value.");
+        }
+        return Id;
+    }
 }

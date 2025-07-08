@@ -23,7 +23,7 @@ namespace Novels;
 public partial class MainWindow : Window {
     public MainWindow () {
         InitializeComponent ();
-        var connectionString = $"";
+        var connectionString = "Data Source=novels.db;";
         var serviceCollection = new ServiceCollection ();
         serviceCollection.AddWpfBlazorWebView ();
         serviceCollection.AddBlazorWebViewDeveloperTools ();
@@ -42,7 +42,7 @@ public partial class MainWindow : Window {
         // アプリモード
         serviceCollection.AddScoped<NovelsAppModeService> ();
         // PetaPoco with MySqlConnector
-        serviceCollection.AddScoped (_ => (Database) new MySqlDatabase (connectionString, "MySqlConnector"));
+        serviceCollection.AddScoped (_ => (Database) new SQLiteDatabase (connectionString, "SQLite"));
         // HTTP Client
         serviceCollection.AddHttpClient ();
         // DataSet
