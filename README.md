@@ -22,6 +22,7 @@ tags: epub webscraping smtp-mail blazor-hybrid wpf
 - データベース
     - 旧: MySql/MariaDB
     - 新: SQLite
+        - データの所在: %APPDATA%/Tetr4lab/Novels/novels.db
 - 認証
     - 旧: Google OAuth
     - 新: なし

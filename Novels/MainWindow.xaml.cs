@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -21,9 +22,22 @@ namespace Novels;
 /// Interaction logic for MainWindow.xaml
 /// </summary>
 public partial class MainWindow : Window {
+
+    /// <summary>DBパス</summary>
+    public static string DbPath { get; protected set; } = "";
+    /// <summary>DBファイル名</summary>
+    protected static readonly string DbFile = "novels.db";
+    /// <summary>データパス</summary>
+    protected static readonly string DataPath = "Tetr4lab/Novels";
+
     public MainWindow () {
         InitializeComponent ();
-        var connectionString = "Data Source=novels.db;";
+        var folder = System.IO.Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.ApplicationData), DataPath);
+        if (!Directory.Exists (folder)) {
+            Directory.CreateDirectory (folder);
+        }
+        DbPath = System.IO.Path.Combine (folder, DbFile);
+        var connectionString = $"Data Source={DbPath};";
         var serviceCollection = new ServiceCollection ();
         serviceCollection.AddWpfBlazorWebView ();
         serviceCollection.AddBlazorWebViewDeveloperTools ();
