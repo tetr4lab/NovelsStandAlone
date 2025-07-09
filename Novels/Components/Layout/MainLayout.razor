@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject IAppLockState UiState
 @inject NovelsAppModeService AppModeService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Novels</PageTitle>
 
@@ -49,24 +50,45 @@
     /// <summary>ダークモード</summary>
     protected bool _isDarkMode;
 
+    /// <summary>設定</summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    protected async ValueTask SetValueAsync<T> (string key, T? value) {
+        if (value is null) {
+            await JSRuntime.InvokeVoidAsync ("localStorage.removeItem", key);
+        } else {
+            await JSRuntime.InvokeVoidAsync ("localStorage.setItem", key, System.Text.Json.JsonSerializer.Serialize (value));
+        }
+    }
+
+    /// <summary>取得</summary>
+    /// <param name="key"></param>
+    /// <returns></returns>
+    protected async ValueTask<T?> GetValueAsync<T> (string key) {
+        var valueString = await JSRuntime.InvokeAsync<string> ("localStorage.getItem", key);
+        if (string.IsNullOrEmpty (valueString)) { return default; }
+        try {
+            return System.Text.Json.JsonSerializer.Deserialize<T> (valueString);
+        }
+        catch (Exception ex) {
+            System.Diagnostics.Debug.WriteLine ($"LocalStorage TryGetValueAsync JsonDeserialize Error: {ex.Message} (Key: {key}, Value: {valueString})");
+            return default;
+        }
+    }
+
     /// <summary>テーマ切替ボタンが押された</summary>
     protected async Task ChangeModeAsync () {
         _isDarkMode = !_isDarkMode;
-        //await Storage.SetValueAsync (DarkModeStorageKey, _isDarkMode);
+        await SetValueAsync (DarkModeStorageKey, _isDarkMode);
     }
 
     /// <summary>遅延初期化</summary>
     protected override async Task OnAfterRenderAsync (bool firstRender) {
         if (firstRender) {
             // テーマ
-            try {
-                // var darkMode = await Storage.GetValueAsync<bool> (DarkModeStorageKey);
-                // _isDarkMode = darkMode.Success ? darkMode.Value : await _mudThemeProvider.GetSystemDarkModeAsync ();
-            }
-            catch (System.Security.Cryptography.CryptographicException ex) {
-                System.Diagnostics.Debug.WriteLine ($"CryptographicException: {ex.Message}\n{ex.StackTrace}");
-            }
-            //await Storage.SetValueAsync (DarkModeStorageKey, _isDarkMode);
+            _isDarkMode = (await GetValueAsync<bool?> (DarkModeStorageKey)) ?? (await _mudThemeProvider.GetSystemDarkModeAsync ());
+            await SetValueAsync (DarkModeStorageKey, _isDarkMode);
             StateHasChanged ();
         }
     }
