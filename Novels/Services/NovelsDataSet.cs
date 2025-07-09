@@ -11,7 +11,7 @@ using Tetr4lab;
 namespace Novels.Services;
 
 /// <summary></summary>
-public sealed class NovelsDataSet : BasicDataSet {
+public sealed class NovelsDataSet : SqliteDataSet {
 
     /// <summary>初期化SQLファイル名</summary>
     private const string InitializeSql = "novels.sql";

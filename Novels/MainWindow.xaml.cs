@@ -56,7 +56,7 @@ public partial class MainWindow : Window {
         // アプリモード
         serviceCollection.AddScoped<NovelsAppModeService> ();
         // PetaPoco with SQLite
-        serviceCollection.AddScoped (_ => (Database) new SQLiteDatabase (connectionString, "SQLite"));
+        serviceCollection.AddScoped (_ => (Database) new SqliteDatabase (connectionString, "SQLite"));
         // HTTP Client
         serviceCollection.AddHttpClient ();
         // DataSet
