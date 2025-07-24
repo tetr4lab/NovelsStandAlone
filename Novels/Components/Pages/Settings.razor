@@ -7,7 +7,7 @@
 } else if (!DataSet.IsReady || items is null) {
     <MudProgressCircular Indeterminate="true" />
 } else if (items.Count > 0) {
-    selectedItem = items [0];
+    SelectedItem = items [0];
     <MudSimpleTable Elevation="0" Dense Striped Bordered>
         <thead>
             <tr>
@@ -18,73 +18,73 @@
         <tbody>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.Id)])</td>
-                <td>@selectedItem.Id</td>
+                <td>@SelectedItem.Id</td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.PersonalDocumentLimitSize)])</td>
-                <td><MudTextField T="int" @bind-Value="selectedItem.PersonalDocumentLimitSize" /></td>
+                <td><MudTextField T="int" @bind-Value="SelectedItem.PersonalDocumentLimitSize" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpServer)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpServer" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpServer" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpPort)])</td>
-                <td><MudTextField T="int" @bind-Value="selectedItem.SmtpPort" /></td>
+                <td><MudTextField T="int" @bind-Value="SelectedItem.SmtpPort" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpUserName)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpUserName" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpUserName" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpPassword)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpPassword" InputType="@PasswordInputType" Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="ButtonTestclick" AdornmentAriaLabel="Show Password" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpPassword" InputType="@PasswordInputType" Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="ButtonTestclick" AdornmentAriaLabel="Show Password" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpMailAddress)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpMailAddress" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpMailAddress" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpMailto)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpMailto" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpMailto" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpCc)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpCc" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpCc" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpBcc)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpBcc" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpBcc" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpSubject)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpSubject" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpSubject" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.SmtpBody)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.SmtpBody" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.SmtpBody" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.UserAgent)])</td>
-                <td><MudTextField T="string" @bind-Value="selectedItem.UserAgent" /></td>
+                <td><MudTextField T="string" @bind-Value="SelectedItem.UserAgent" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.AccessIntervalTime)])</td>
-                <td><MudNumericField Min="1000" @bind-Value="selectedItem.AccessIntervalTime" /></td>
+                <td><MudNumericField Min="1000" @bind-Value="SelectedItem.AccessIntervalTime" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.DefaultCookiesJson)])</td>
-                <td><MudTextField T="string" Validation="@(new Func<string, bool> (CookiesValidate))" @bind-Value="selectedItem.DefaultCookiesJson" @ref="_cookieField" /></td>
+                <td><MudTextField T="string" Validation="@(new Func<string, bool> (CookiesValidate))" @bind-Value="SelectedItem.DefaultCookiesJson" @ref="_cookieField" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.IncludeImage)])</td>
-                <td><MudCheckBox @bind-Value="selectedItem.IncludeImage" /></td>
+                <td><MudCheckBox @bind-Value="SelectedItem.IncludeImage" /></td>
             </tr>
             <tr>
                 <td>@(Setting.Label [nameof (Setting.Remarks)])</td>
                 <td>
                     <style>.horizontal-scroll textarea { overflow-x: auto; white-space: nowrap; }</style>
-                    <MudTextField Class="horizontal-scroll" T="string" @bind-Value="selectedItem.Remarks" Lines="10" />
+                    <MudTextField Class="horizontal-scroll" T="string" @bind-Value="SelectedItem.Remarks" Lines="10" />
                 </td>
             </tr>
         </tbody>

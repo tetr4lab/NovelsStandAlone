@@ -1,4 +1,4 @@
-﻿@inherits ItemListBase<Sheet>
+﻿@inherits SheetListBase
 
 @inject IJSRuntime JsRuntime
 
@@ -88,12 +88,12 @@
             await SetBusyAsync ();
             index = Book.Sheets.Count > 0 ? Math.Clamp (index, 1, Book.Sheets.Count) : 1;
             AppModeService.SetCurrentSheetIndex (index);
-            if (editingItem is not null) {
-                Cancel (editingItem);
+            if (IsEditing) {
+                Cancel ();
             }
             if (Book.Sheets.Count > 0) {
                 Sheet = Book.Sheets [index - 1];
-                selectedItem = Sheet;
+                SelectedItem = Sheet;
                 AppModeService.SetSectionTitle ($"<span style=\"font-size:80%;\"><a href=\"{Sheet.Url}\" target=\"_blank\" style=\"text-decoration: none;\">『{Book.Title}』 {Book.Author}</a></span>\n{Sheet.OriginalChapterTitle} {Sheet.ChapterSubTitle}");
                 StartEdit ();
             }

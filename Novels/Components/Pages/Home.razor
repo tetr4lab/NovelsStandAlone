@@ -15,19 +15,19 @@
         }
         break;
     case AppMode.Books:
-        <Books Book="Book" ReLoadAsync="ReLoadAsync" />
+        <Books />
         break;
     case AppMode.Issue:
-        <Issue Book="Book" ReLoadAsync="ReLoadAsync" />
+        <Issue />
         break;
     case AppMode.Contents:
-        <Sheets Book="Book" ReLoadAsync="ReLoadAsync" />
+        <Sheets />
         break;
     case AppMode.Read:
-        <Read Book="Book" ReLoadAsync="ReLoadAsync" />
+        <Read />
         break;
     case AppMode.Settings:
-        <Settings Book="Book" ReLoadAsync="ReLoadAsync" />
+        <Settings />
         break;
     default:
         break;
@@ -47,16 +47,6 @@
             }
         }
         base.OnAppModeChanged (sender, e);
-    }
-
-    /// <summary>再読み込み</summary>
-    protected async Task ReLoadAsync () {
-        // リロード完了待機
-        await DataSet.LoadAsync ();
-        if (AppModeService.CurrentBookId > 0 && DataSet.IsInitialized) {
-            // 着目書籍オブジェクトを取得
-            Book = DataSet.Books.Find (s => s.Id == AppModeService.CurrentBookId);
-        }
     }
 
     /// <inheritdoc/>

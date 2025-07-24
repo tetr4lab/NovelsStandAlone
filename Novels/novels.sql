@@ -21,6 +21,7 @@ CREATE TABLE "books" (
   "errata" text DEFAULT NULL,
   "wish" integer NOT NULL DEFAULT 0,
   "bookmark" integer DEFAULT NULL,
+  "cover_image" blob DEFAULT NULL,
   "remarks" text DEFAULT NULL,
   PRIMARY KEY ("id" AUTOINCREMENT)
 );

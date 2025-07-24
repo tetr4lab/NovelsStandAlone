@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using AngleSharp.Dom;
@@ -48,6 +50,44 @@ namespace QuickEPUB {
                     <div class="author">{book.Author}</div>
                 </div>
                 """, "book-style.css");
+        }
+
+        /// <summary>指定された画像をリソースに加える</summary>
+        /// <param name="doc">EPUB</param>
+        /// <param name="imageUri">画像URL</param>
+        /// <returns>画像のファイル名</returns>
+        public static async Task<string> AddImageResource (this Epub doc, HttpClient HttpClient, Uri imageUri, string userAgent, bool isCover = false) {
+            HttpClient.DefaultRequestHeaders.Add ("User-Agent", userAgent);
+            using (var response = await HttpClient.GetAsync (imageUri, HttpCompletionOption.ResponseHeadersRead)) {
+                response.EnsureSuccessStatusCode (); // HTTPエラーコードが返された場合に例外をスロー
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+                var resourceType = contentType switch {
+                    "image/jpeg" => EpubResourceType.JPEG,
+                    "image/png" => EpubResourceType.PNG,
+                    "image/gif" => EpubResourceType.GIF,
+                    "image/ttf" => EpubResourceType.TTF,
+                    "image/otf" => EpubResourceType.OTF,
+                    "image/svg+xml" => EpubResourceType.SVG,
+                    _ => EpubResourceType.JPEG,
+                };
+                var fileName = $"img_{Guid.NewGuid ().ToString ("N")}.{resourceType.ToString ().ToLower ()}"; // ユニークな名前を生成
+                using (var stream = await response.Content.ReadAsStreamAsync ()) {
+                    doc.AddResource (fileName, resourceType, stream, isCover);
+                }
+                return fileName;
+            }
+        }
+
+        /// <summary>指定された画像をリソースに加える</summary>
+        /// <param name="doc">EPUB</param>
+        /// <param name="image">画像</param>
+        /// <returns>画像のファイル名</returns>
+        public static async Task<string> AddImageResource (this Epub doc, byte [] image, string type, bool isCover = false) {
+            var fileName = $"img_{Guid.NewGuid ().ToString ("N")}.{type}"; // ユニークな名前を生成
+            using (var stream = new MemoryStream (image)) {
+                doc.AddResource (fileName, EpubResourceType.JPEG, stream, isCover);
+            }
+            return await Task.FromResult (fileName);
         }
     }
 }

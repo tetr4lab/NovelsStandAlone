@@ -101,13 +101,23 @@ public sealed class NovelsDataSet : SqliteDataSet {
     /// <summary>着目中の書籍</summary>
     public Book CurrentBook => GetItemById<Book> (CurrentBookId);
 
-    /// <summary>IDからBookを得る</summary>
-    private T GetItemById<T> (long id) where T : NovelsBaseModel<T>, INovelsBaseModel, new () {
-        var id2item = new Dictionary<long, T> ();
+    /// <summary>IDからItemを得る</summary>
+    private T GetItemById<T> (long id) where T : NovelsBaseModel<T>, INovelsBaseModel, new() {
         if (typeof (T) == typeof (Book)) {
             return (_id2Book.TryGetValue (id, out var item) ? item : null) as T ?? new ();
         } else if (typeof (T) == typeof (Sheet)) {
             return (_id2Sheet.TryGetValue (id, out var item) ? item : null) as T ?? new ();
+        } else {
+            throw new ArgumentException ($"The type param must be {nameof (Book)} or {nameof (Sheet)}", nameof (T));
+        }
+    }
+
+    /// <summary>新しいIDとItemを登録</summary>
+    private void SetItemById<T> (T item) where T : BaseModel<T>, new() {
+        if (item is Book book) {
+            _id2Book [book.Id] = book;
+        } else if (item is Sheet sheet) {
+            _id2Sheet [sheet.Id] = sheet;
         } else {
             throw new ArgumentException ($"The type param must be {nameof (Book)} or {nameof (Sheet)}", nameof (T));
         }
@@ -193,13 +203,25 @@ public sealed class NovelsDataSet : SqliteDataSet {
         return false;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>Idからの変換辞書に登録</remarks>
+    public override async Task<Result<T>> AddAsync<T> (T item) {
+        var result = await base.AddAsync (item);
+        if (result.IsSuccess) {
+            SetItemById (item);
+        }
+        return result;
+    }
+
     /// <summary>書籍の更新</summary>
     /// <param name="client">HTTPクライアント</param>
     /// <param name="url">対象の書籍のURL</param>
     /// <param name="userIdentifier">ユーザ識別子</param>
     /// <param name="withSheets">シートを含めるか</param>
+    /// <param name="fullUpdate"></param>
+    /// <param name="progress"></param>
     /// <returns>書籍と問題のリスト</returns>
-    public async Task<Result<(Book book, List<string> issues)>> UpdateBookFromSiteAsync (HttpClient client, string url, string userIdentifier, bool withSheets = false, Action<int, int>? progress = null) {
+    public async Task<Result<(Book book, List<string> issues)>> UpdateBookFromSiteAsync (HttpClient client, string url, string userIdentifier, bool withSheets = false, bool fullUpdate = false, Action<int, int>? progress = null) {
         var issues = new List<string> ();
         var status = Status.Unknown;
         if (Valid) {
@@ -210,9 +232,7 @@ public sealed class NovelsDataSet : SqliteDataSet {
                 book.Modifier = userIdentifier;
             }
             try {
-                // 取得日時を記録
                 client.DefaultRequestHeaders.Add ("User-Agent", Setting.UserAgent);
-                var lastTime = DateTime.Now;
                 using (var message = await client.GetWithCookiesAsync (book.Url, Setting.DefaultCookies)) {
                     if (message.IsSuccessStatusCode && message.StatusCode == System.Net.HttpStatusCode.OK) {
                         var htmls = new List<string> { await message.Content.ReadAsStringAsync (), };
@@ -234,7 +254,6 @@ public sealed class NovelsDataSet : SqliteDataSet {
                         if (book.Id == 0) {
                             var result = await AddAsync (book);
                             if (result.IsSuccess) {
-                                _id2Book [book.Id] = book;
                                 status = Status.Success;
                             } else {
                                 issues.Add ($"Failed to add: {book.Url} {result.Status}");
@@ -255,6 +274,10 @@ public sealed class NovelsDataSet : SqliteDataSet {
                             status = Status.Unknown;
                             for (var index = 0; index < book.SheetUrls.Count; index++) {
                                 string sheetUrl = book.SheetUrls [index];
+                                var sheet = book.Sheets.FirstOrDefault (s => s.Url == sheetUrl);
+                                if (!fullUpdate && book.SheetUpdateDates.Count > index && sheet?.SheetUpdatedAt > book.SheetUpdateDates [index]) {
+                                    continue;
+                                }
                                 await Task.Delay (Setting.AccessIntervalTime);
                                 if (string.IsNullOrEmpty (sheetUrl)) {
                                     issues.Add ($"Invalid Sheet URL: {url} + {sheetUrl}");
@@ -263,7 +286,6 @@ public sealed class NovelsDataSet : SqliteDataSet {
                                 using (var message3 = await client.GetWithCookiesAsync (sheetUrl, Setting.DefaultCookies)) {
                                     if (message3.IsSuccessStatusCode && message3.StatusCode == System.Net.HttpStatusCode.OK) {
                                         var sheetHtml = await message3.Content.ReadAsStringAsync ();
-                                        var sheet = book.Sheets.FirstOrDefault (s => s.Url == sheetUrl);
                                         if (sheet == default) {
                                             sheet = new Sheet () { BookId = book.Id, Url = sheetUrl, Book = book, Creator = userIdentifier, Modifier = userIdentifier, };
                                         } else {
@@ -275,9 +297,7 @@ public sealed class NovelsDataSet : SqliteDataSet {
                                         sheet.SheetUpdatedAt = DateTime.Now;
                                         if (sheet.Id == 0) {
                                             var result = await AddAsync (sheet);
-                                            if (result.IsSuccess) {
-                                                _id2Sheet [sheet.Id] = sheet;
-                                            } else {
+                                            if (result.IsFailure) {
                                                 issues.Add ($"Failed to add: {sheetUrl} {result.Status}");
                                                 throw new Exception ("aborted");
                                             }
@@ -311,4 +331,5 @@ public sealed class NovelsDataSet : SqliteDataSet {
         }
         return new (status, (new (), issues));
     }
+
 }

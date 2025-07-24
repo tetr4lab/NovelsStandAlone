@@ -44,31 +44,29 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
     protected List<T>? items => DataSet.IsReady ? DataSet.GetList<T> () : null;
 
     /// <summary>選択項目</summary>
-    protected T selectedItem { get; set; } = new ();
-
-    /// <summary>着目中の書籍</summary>
-    [Parameter] public Book? Book { get; set; } = null;
-
-    /// <summary>DataSetの再読み込み</summary>
-    [Parameter] public EventCallback ReLoadAsync { get; set; }
+    protected T SelectedItem { get; set; } = new ();
 
     /// <summary>初期化</summary>
     protected override async Task OnInitializedAsync () {
         await base.OnInitializedAsync ();
         AppModeService.SetSectionTitle ($"{typeof (T).Name}s");
-        newItem = NewEditItem;
-        if (Book is not null && Book is T item) {
-            selectedItem = item;
+        if (typeof (T) == typeof (Book)) {
+            if (items?.Count > 0) {
+                var item = items.Find (item => item.Id == AppModeService.CurrentBookId);
+                if (item is not null) {
+                    SelectedItem = item;
+                }
+            }
         } else if (typeof (T) == typeof (Sheet)) {
             if (AppModeService.CurrentSheetIndex <= 0) {
                 AppModeService.SetCurrentSheetIndex (1);
             }
             if (items?.Count >= AppModeService.CurrentSheetIndex) {
-                selectedItem = items [AppModeService.CurrentSheetIndex - 1];
+                SelectedItem = items [AppModeService.CurrentSheetIndex - 1];
             }
         } else if (typeof (T) == typeof (Setting)) {
             if (items?.Count > 0) {
-                selectedItem = items [0];
+                SelectedItem = items [0];
             }
         }
     }
@@ -88,107 +86,62 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
     /// <summary>破棄</summary>
     public override void Dispose () {
         base.Dispose ();
-        if (editingItem != null) {
-            Cancel (editingItem);
+        if (IsEditing) {
+            Cancel ();
         }
     }
 
-    /// <summary>表示の更新と反映待ち</summary>
-    protected async Task StateHasChangedAsync () {
-        StateHasChanged ();
-        await TaskEx.DelayOneFrame;
-    }
-
     //// <summary>着目書籍の変更</summary>
-    protected void ChangeCurrentBook (Book book) {
+    protected virtual async Task ChangeCurrentBookAsync (Book book) {
         if (book is T item) {
-            selectedItem = item;
+            SelectedItem = item;
         }
         if (AppModeService.CurrentBookId != book.Id) {
             AppModeService.SetCurrentBookId (book.Id, 1);
         }
+        // ToDo: asyncを外す
+        await Task.Delay (0);
     }
 
     /// <summary>データグリッド</summary>
     protected MudDataGrid<T>? _dataGrid;
 
     /// <summary>バックアップ</summary>
-    protected virtual T backupedItem { get; set; }  = new ();
+    protected virtual T? BackupedItem { get; set; } = null;
 
-    /// <summary>編集対象アイテム</summary>
-    protected T? editingItem;
-
-    /// <summary>型チェック</summary>
-    protected T GetT (object obj) => obj as T ?? throw new ArgumentException ($"The type of the argument '{obj.GetType ()}' does not match the expected type '{typeof (T)}'.");
-
-    /// <summary>編集開始</summary>
-    protected virtual void Edit (object obj) {
-        var item = GetT (obj);
-        backupedItem = item.Clone ();
-        editingItem = item;
-        StateHasChanged ();
-    }
+    /// <summary>編集中</summary>
+    protected bool IsEditing => BackupedItem is not null;
 
     /// <summary>編集完了</summary>
-    protected virtual async Task<bool> Commit (object obj) {
-        var saved = false;
-        var item = GetT (obj);
-        if (!NovelsDataSet.EntityIsValid (item)) {
-            Snackbar.Add ($"{T.TableLabel}に不備があります。", Severity.Error);
-        } else if (!backupedItem.Equals (item)) {
-            item.Modifier = UserIdentifier;
-            var result = await DataSet.UpdateAsync (item);
-            if (result.IsSuccess) {
-                await ReloadAndFocus (item.Id);
-                editingItem = null;
-                StateHasChanged ();
-                Snackbar.Add ($"{T.TableLabel}を更新しました。", Severity.Normal);
-                saved = true;
-            } else {
-                Snackbar.Add ($"{T.TableLabel}を更新できませんでした。", Severity.Error);
+    protected virtual async Task<bool> Commit () {
+        if (BackupedItem is not null) {
+            if (!NovelsDataSet.EntityIsValid (SelectedItem)) {
+                Snackbar.Add ($"{T.TableLabel}に不備があります。", Severity.Error);
+            } else if (!BackupedItem.Equals (SelectedItem)) {
+                SelectedItem.Modifier = UserIdentifier;
+                var result = await DataSet.UpdateAsync (SelectedItem);
+                if (result.IsSuccess) {
+                    await ReloadAndFocus (SelectedItem.Id);
+                    BackupedItem = null;
+                    StateHasChanged ();
+                    Snackbar.Add ($"{T.TableLabel}を更新しました。", Severity.Normal);
+                    return true;
+                } else {
+                    Snackbar.Add ($"{T.TableLabel}を更新できませんでした。", Severity.Error);
+                }
             }
         }
-        return saved;
+        return false;
     }
 
     /// <summary>編集取消</summary>
-    protected virtual void Cancel (object obj) {
-        var item = GetT (obj);
-        if (!backupedItem.Equals (item)) {
-            backupedItem.CopyTo (item);
+    protected virtual void Cancel () {
+        if (BackupedItem?.Equals (SelectedItem) == false) {
+            BackupedItem.CopyTo (SelectedItem);
         }
-        editingItem = null;
+        BackupedItem = null;
         StateHasChanged ();
     }
-
-    /// <summary>項目追加</summary>
-    protected virtual async Task AddItem () {
-        if (isAdding || items == null) { return; }
-        isAdding = true;
-        await StateHasChangedAsync ();
-        if (NovelsDataSet.EntityIsValid (newItem)) {
-            var result = await DataSet.AddAsync (newItem);
-            if (result.IsSuccess) {
-                lastCreatedId = result.Value.Id;
-                await ReloadAndFocus (lastCreatedId, editing: true);
-                Snackbar.Add ($"{T.TableLabel}を追加しました。", Severity.Normal);
-            } else {
-                lastCreatedId = 0;
-                Snackbar.Add ($"{T.TableLabel}を追加できませんでした。", Severity.Error);
-            }
-            newItem = NewEditItem;
-        }
-        isAdding = false;
-    }
-
-    /// <summary>項目追加の排他制御</summary>
-    protected bool isAdding;
-
-    /// <summary>追加対象の事前編集</summary>
-    protected T newItem = default!;
-
-    /// <summary>最後に追加された項目Id</summary>
-    protected long lastCreatedId;
 
     /// <summary>リストの着目項目へスクロール</summary>
     /// <param name="focusedId">書誌ID</param>
@@ -239,32 +192,17 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
     }
 
     /// <summary>リロードして元の位置へ戻る</summary>
-    protected virtual async Task ReloadAndFocus (long focusedId, bool editing = false) {
+    protected virtual async Task ReloadAndFocus (long focusedId, bool editing = false, bool force = false) {
         await DataSet.LoadAsync ();
-        await ScrollToCurrentAsync (focusedId: focusedId);
-    }
-
-    /// <summary>新規生成用の新規アイテム生成</summary>
-    protected virtual T NewEditItem => new () {
-        DataSet = DataSet,
-        Creator = UserIdentifier,
-        Modifier = UserIdentifier,
-    };
-
-    /// <summary>項目削除</summary>
-    /// <param name="obj"></param>
-    protected virtual async Task DeleteItem (object obj) {
-        var item = GetT (obj);
-        // 確認ダイアログ
-        var dialogResult = await DialogService.Confirmation ([$"以下の{T.TableLabel}を完全に削除します。", item.ToString ()], title: $"{T.TableLabel}削除", position: DialogPosition.BottomCenter, acceptionLabel: "Delete", acceptionColor: Color.Error, acceptionIcon: Icons.Material.Filled.Delete);
-        if (dialogResult != null && !dialogResult.Canceled && dialogResult.Data is bool ok && ok) {
-            var result = await DataSet.RemoveAsync (item);
-            if (result.IsSuccess) {
-                StateHasChanged ();
-                Snackbar.Add ($"{T.TableLabel}を削除しました。", Severity.Normal);
-            } else {
-                Snackbar.Add ($"{T.TableLabel}を削除できませんでした。", Severity.Error);
-            }
+        var item = DataSet.GetList<T> ().Find (item => item.Id == focusedId);
+        if (item is not null) {
+            SelectedItem = item;
+        }
+        if (editing || force) {
+            StartEdit (force);
+        }
+        if (_dataGrid is not null) {
+            await ScrollToCurrentAsync (focusedId: focusedId);
         }
     }
 
@@ -315,10 +253,9 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
     }
 
     /// <summary>編集開始</summary>
-    protected virtual void StartEdit () {
-        if (editingItem is null) {
-            editingItem = selectedItem;
-            backupedItem = selectedItem.Clone ();
+    protected virtual void StartEdit (bool force = false) {
+        if (force || !IsEditing) {
+            BackupedItem = SelectedItem.Clone ();
         }
     }
 
@@ -339,11 +276,11 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
                     await InvokeAsync (StateHasChanged); // 反映を促す
                     await TaskEx.DelayOneFrame; // 反映を待つ
                     var filtered = _dataGrid.FilteredItems.ToList ();
-                    if (filtered.Count > 0 && !filtered.Contains (selectedItem)) {
+                    if (filtered.Count > 0 && !filtered.Contains (SelectedItem)) {
                         // 現選択アイテムが結果にないなら最後のアイテムを選択
-                        selectedItem = filtered.Last ();
-                        if (selectedItem is Book book) {
-                            ChangeCurrentBook (book);
+                        SelectedItem = filtered.Last ();
+                        if (SelectedItem is Book book) {
+                            await ChangeCurrentBookAsync (book);
                         }
                     }
                 }
@@ -366,10 +303,11 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
 
     /// <summary>編集内容破棄の確認</summary>
     protected virtual async Task<bool> ConfirmCancelEditAsync () {
-        if (editingItem is not null && IsDirty) {
-            var dialogResult = await DialogService.Confirmation ([$"編集内容を破棄して編集前の状態を復元します。", "　", $"破棄される{editingItem}", "　⬇", $"復元される{backupedItem}",], title: $"{T.TableLabel}編集破棄", position: DialogPosition.BottomCenter, width: MaxWidth.Large, acceptionLabel: "破棄", acceptionColor: Color.Error, acceptionIcon: Icons.Material.Filled.Delete);
+        if (IsDirty) {
+            await SetBusyAsync ();
+            var dialogResult = await DialogService.Confirmation ([$"編集内容を破棄して編集前の状態を復元します。", "　", $"破棄される{SelectedItem}", "　⬇", $"復元される{BackupedItem}",], title: $"{T.TableLabel}編集破棄", position: DialogPosition.BottomCenter, width: MaxWidth.Large, acceptionLabel: "破棄", acceptionColor: Color.Error, acceptionIcon: Icons.Material.Filled.Delete, onOpend: SetIdleAsync);
             if (dialogResult != null && !dialogResult.Canceled && dialogResult.Data is bool ok && ok) {
-                Cancel (editingItem);
+                Cancel ();
                 Snackbar.Add ($"{T.TableLabel}の編集内容を破棄して編集前の状態を復元しました。", Severity.Normal);
             } else {
                 return false;
@@ -379,7 +317,7 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
     }
 
     /// <summary>編集されている</summary>
-    protected bool IsDirty => editingItem is not null && backupedItem is not null && !editingItem.Equals (backupedItem);
+    protected bool IsDirty => IsEditing && !SelectedItem.Equals (BackupedItem);
 
     /// <summary>復旧</summary>
     protected async Task RevertAsync () {
@@ -390,9 +328,9 @@ public class ItemListBase<T> : NovelsComponentBase, IDisposable where T : Novels
 
     /// <summary>保存</summary>
     protected async Task SaveAsync () {
-        if (editingItem is not null) {
+        if (IsEditing) {
             await SetBusyAsync ();
-            if (await Commit (editingItem)) {
+            if (await Commit ()) {
                 StartEdit ();
             }
             await SetIdleAsync ();

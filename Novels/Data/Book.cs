@@ -104,6 +104,8 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
         { nameof (Remarks), "備考" },
         { nameof (LastUpdate), "最終更新" },
         { nameof (Bookmark), "栞" },
+        { nameof (CoverUrls), "表紙画像" },
+        { nameof (CoverImage), "表紙画像" },
     };
 
     /// <inheritdoc/>
@@ -129,9 +131,16 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
     [Column ("errata")] public string? _errata { get; set; } = null;
     [Column ("wish")] public bool Wish { get; set; } = false;
     [Column ("bookmark")] public long? Bookmark { get; set; } = null;
+    [Column ("cover_image")] public byte []? CoverImage { get; set; } = null;
 
     /// <summary>関係先シートの実数</summary>
     [Column ("number_of_related_sheets"), VirtualColumn] public int NumberOfRelatedSheets { get; set; } = 0;
+
+    /// <summary>表紙画像種別を判定</summary>
+    public string CoverImageType => CoverImage.DetectImageType () ?? string.Empty;
+
+    /// <summary>埋め込み表紙画像データ</summary>
+    public string CoverImageSource => CoverImage.ToImageSource ();
 
     /// <summary>Urlの代表</summary>
     public string Url => Url1 ?? Url2 ?? "";
@@ -563,6 +572,48 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
     }
     protected int __lastPage = 0;
 
+    /// <summary>表紙画像URL</summary>
+    public List<string> CoverUrls {
+        get {
+            if (__coverUrls is null && !string.IsNullOrEmpty (_html) && Document is not null) {
+                __coverUrls = new ();
+                var images = Document.QuerySelectorAll ("img");
+                foreach (var image in images) {
+                    var width = image.GetAttribute ("width");
+                    var alt = image.GetAttribute ("alt");
+                    if (alt is not null && alt.Contains ("表紙") || width is not null && int.TryParse (width, out var w) && w >= 400) {
+                        var src = image.GetAttribute ("src");
+                        if (!string.IsNullOrEmpty (src)) {
+                            __coverUrls.Add (new Uri (new Uri (Url), src).AbsoluteUri);
+                        }
+                    }
+                }
+            }
+            return __coverUrls ?? new ();
+        }
+    }
+    protected List<string>? __coverUrls = null;
+
+    /// <summary>カバー選択</summary>
+    public int? CoverSelection {
+        get => __coverSelection;
+        set {
+            if (value is null) {
+                // nop
+            } else if (__coverUrls is null || __coverUrls.Count == 0) {
+                value = 0;
+            } else if (value >= __coverUrls.Count) {
+                value %= __coverUrls.Count;
+            } else {
+                while (value < 0) {
+                    value += __coverUrls.Count;
+                }
+            }
+            __coverSelection = value;
+        }
+    }
+    protected int? __coverSelection = 0;
+
     /// <summary>名前の標準化</summary>
     /// <param name="name">名前</param>
     /// <param name="monadic">単独記号以降を削除するか</param>
@@ -745,6 +796,8 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
         __mainTitle = null;
         __subTitle = null;
         __explanation = null;
+        __coverUrls = null;
+        __coverSelection = 0;
         // 再パース
         _ = SheetUrls;
         _ = SheetUpdateDates;
@@ -802,6 +855,7 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
         item._errata = _errata;
         item.Wish = Wish;
         item.Bookmark = Bookmark;
+        item.CoverImage = CoverImage;
         return item;
     }
 
@@ -822,6 +876,7 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
         destination._errata = _errata;
         destination.Wish = Wish;
         destination.Bookmark = Bookmark;
+        destination.CoverImage = CoverImage;
         return base.CopyTo (destination);
     }
 
@@ -844,6 +899,7 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
         && _errata == other._errata
         && Wish == other.Wish
         && Bookmark == other.Bookmark
+        && CoverImage == other.CoverImage
         && Remarks == other.Remarks
     ;
 
@@ -851,8 +907,9 @@ public class Book : NovelsBaseModel<Book>, INovelsBaseModel {
     public override int GetHashCode () => HashCode.Combine (
         HashCode.Combine (Url1, Url2, _html, _site, _title, _author, NumberOfIsshued, IssuedAt),
         HashCode.Combine (Readed, ReadedMemo, _status, HtmlBackup, _errata, Wish, Bookmark, Remarks),
+        HashCode.Combine (CoverImage),
         base.GetHashCode ());
 
     /// <inheritdoc/>
-    public override string ToString () => $"{TableLabel} {Id}: {Url1}, {Url2}, {_site}, {_title}, {_author}, {_status}, {(Readed ? "Readed, " : "")}\"{ReadedMemo}\", {(Wish? "Wish, " : "")}{NumberOfIsshued}/{NumberOfSheets}, {IssuedAt}, {(Errata is null ? "" : string.Join (',', Errata.Split ('\n')) + ", ")}\"{Remarks}\"";
+    public override string ToString () => $"{TableLabel} {Id}: {Url1}, {Url2}, {_site}, {_title}, {_author}, {_status}, {(Readed ? "Readed, " : "")}\"{ReadedMemo}\", {(Wish ? "Wish, " : "")}{NumberOfIsshued}/{NumberOfSheets}, {IssuedAt}{(CoverImage is null ? "" : ", has CoverImage")}, {(Errata is null ? "" : string.Join (',', Errata.Split ('\n')) + ", ")}\"{Remarks}\"";
 }

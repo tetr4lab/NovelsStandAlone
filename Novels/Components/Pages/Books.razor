@@ -1,6 +1,4 @@
-﻿@inherits ItemListBase<Book>
-
-@inject HttpClient HttpClient
+﻿@inherits BookListBase
 
 @if (DataSet.IsUnavailable) {
     <MudAlert Severity="Severity.Error" Elevation="3">Unable to connect to any of the specified database management hosts.</MudAlert>
@@ -148,9 +146,9 @@
     public static readonly double ViewportHeightRatio = 1.25d;
 
     /// <summary>行がクリックされた</summary>
-    protected void OnRowClick (DataGridRowClickEventArgs<Book> context) {
+    protected async Task OnRowClick (DataGridRowClickEventArgs<Book> context) {
         if (context.Item is Book book) {
-            ChangeCurrentBook (book);
+            await ChangeCurrentBookAsync (book);
         }
     }
 
@@ -167,7 +165,7 @@
 
     /// <summary>フィルター切り替え</summary>
     protected async Task ChangeFilter (string filter, Book book) {
-        ChangeCurrentBook (book);
+        await ChangeCurrentBookAsync (book);
         await ChangeFilter (filter);
     }
 
@@ -182,7 +180,7 @@
     protected async Task OpenUrl (Book book) {
         await SetBusyAsync ();
         await JSRuntime.OpenUrl (book.Url);
-        ChangeCurrentBook (book);
+        await ChangeCurrentBookAsync (book);
         await SetIdleAsync ();
     }
 
@@ -196,7 +194,7 @@
     /// <summary>書籍を発行</summary>
     protected async Task IsshueBook (Book book) {
         await SetBusyAsync ();
-        ChangeCurrentBook (book);
+        await ChangeCurrentBookAsync (book);
         await SetAppMode (AppMode.Issue);
         await SetIdleAsync ();
     }
@@ -204,55 +202,8 @@
     /// <summary>書籍を開く</summary>
     protected async Task OpenBook (Book book) {
         await SetBusyAsync ();
-        ChangeCurrentBook (book);
+        await ChangeCurrentBookAsync (book);
         await SetAppMode (AppMode.Contents);
         await SetIdleAsync ();
-    }
-
-    /// <summary>書籍を追加する</summary>
-    protected async Task AddBook () {
-        var url = "";
-        try {
-            url = await JSRuntime.GetClipboardText ();
-            // urlを修正する機会を与えるダイアログを表示
-            var dialogResult = await (await DialogService.OpenAddItemDialog<Book> (
-                message: $"取得先URLを確認して{Book.TableLabel}の追加を完了してください。",
-                label: "URL",
-                value: url
-            )).Result;
-            if (dialogResult is not null && !dialogResult.Canceled && dialogResult.Data is string newUrl && !string.IsNullOrEmpty (newUrl)) {
-                newUrl = newUrl.Trim ();
-                // 既存のURLと比較する
-                var existingBook = items?.FirstOrDefault (x => x.Url1 == newUrl || x.Url2 == newUrl);
-                if (existingBook is not null) {
-                    Snackbar.Add ($"既存の{Book.TableLabel}: 『{existingBook.Title}』", Severity.Warning);
-                    ChangeCurrentBook (existingBook);
-                    await ScrollToCurrentAsync ();
-                    return;
-                }
-                // オーバーレイ
-                await SetBusyAsync ();
-                // 入力されたurlからあたらしいBookに情報を取得、DBへ追加・選択する
-                var result = await DataSet.UpdateBookFromSiteAsync (HttpClient, newUrl, UserIdentifier);
-                foreach (var issue in result.Value.issues) {
-                    Snackbar.Add (issue, Severity.Error);
-                }
-                if (result.IsSuccess) {
-                    var newBook = result.Value.book;
-                    lastCreatedId = newBook.Id;
-                    ChangeCurrentBook (newBook);
-                    // Issueページへ移動する
-                    await IsshueBook (newBook);
-                } else {
-                    Snackbar.Add ($"追加に失敗: {(items is null ? "null, " : "")}{lastCreatedId}\n{newItem}", Severity.Error);
-                }
-            }
-        }
-        catch (Exception ex) {
-            Snackbar.Add ($"Exception: {ex.Message}", Severity.Error);
-        }
-        finally {
-            await SetIdleAsync ();
-        }
     }
 }
