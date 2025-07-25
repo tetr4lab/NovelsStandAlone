@@ -107,6 +107,8 @@ public sealed class NovelsDataSet : SqliteDataSet {
             return (_id2Book.TryGetValue (id, out var item) ? item : null) as T ?? new ();
         } else if (typeof (T) == typeof (Sheet)) {
             return (_id2Sheet.TryGetValue (id, out var item) ? item : null) as T ?? new ();
+        } else if (typeof (T) == typeof (Sheet)) {
+            return (id == Setting.Id ? Setting as T  : null) ?? new ();
         } else {
             throw new ArgumentException ($"The type param must be {nameof (Book)} or {nameof (Sheet)}", nameof (T));
         }
@@ -118,6 +120,8 @@ public sealed class NovelsDataSet : SqliteDataSet {
             _id2Book [book.Id] = book;
         } else if (item is Sheet sheet) {
             _id2Sheet [sheet.Id] = sheet;
+        } else if (item is Setting setting) {
+            // nop
         } else {
             throw new ArgumentException ($"The type param must be {nameof (Book)} or {nameof (Sheet)}", nameof (T));
         }
